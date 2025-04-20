@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/user_auth/presentation/pages/login_page.dart';
+import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
 import 'package:my_telemedicine/global/common/toast.dart';
 
 import 'package:my_telemedicine/features/user_auth/domain/user_dto.dart';
@@ -105,21 +106,10 @@ class _SignUpPageState extends State<SignUpPage> {
                     return null;
                   },
                 ),
-                TextFormField(
+                FormContainerWidget(
                   controller: _passwordController,
-                  decoration: InputDecoration(
-                      labelText: 'Password',
-                      suffixIcon: IconButton(
-                        icon: Icon(isObscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            isObscurePassword = !isObscurePassword;
-                          });
-                        },
-                      )),
-                  obscureText: _obscurePassword,
+                  hintText: "Password",
+                  isPasswordField: true,
                   validator: (value) => value!.length < 6
                       ? 'Password must be at least 6 characters'
                       : null,
@@ -396,7 +386,6 @@ class _SignUpPageState extends State<SignUpPage> {
             ),
           )),)
           ;
-    );
   }
 
   void _signUp() async {
@@ -452,8 +441,7 @@ class _SignUpPageState extends State<SignUpPage> {
           if (user != null) {
             await _auth.addUserToFirestore(user.uid, userDto.toJson());
             showToast(message: "User registered successfully. Please Login.");
-            Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (context) => LoginPage()));
+            Navigator.pushNamed(context, "/home");
           } else {
             showToast(message: "Registration failed. Please try again.");
           }

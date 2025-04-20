@@ -53,7 +53,7 @@ class DoctorDTO extends UserDTO {
     required String fullName,
     required String email,
     required String phoneNumber,
-    required this.specialization,
+    required String this.specialization,
     required this.experience,
     required this.affiliation,
     required this.licenseId,

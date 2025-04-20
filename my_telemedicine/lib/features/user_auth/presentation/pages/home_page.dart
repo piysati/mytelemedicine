@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -62,14 +62,14 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Welcome, Dr. ${_name ?? 'Doctor'}",
-                style: Theme.of(context).textTheme.headline5),
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 20),
-            Text("My Patients", style: Theme.of(context).textTheme.headline6),
+            Text("My Patients", style: Theme.of(context).textTheme.titleLarge),
             // Replace with actual patient list data
             _buildPatientList(),
             const SizedBox(height: 20),
             Text("Upcoming Appointments",
-                style: Theme.of(context).textTheme.headline6),
+                style: Theme.of(context).textTheme.titleLarge),
             // Replace with actual appointment data
             _buildAppointmentList(),
           ],
@@ -175,12 +175,12 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 20),
             Text("Medical History",
-                style: Theme.of(context).textTheme.headline6),
+                style: Theme.of(context).textTheme.titleLarge),
             // Replace with actual medical history data
             _buildMedicalHistory(),
             const SizedBox(height: 20),
             Text("Health Condition Tracker",
-                style: Theme.of(context).textTheme.headline6),
+                style: Theme.of(context).textTheme.titleLarge),
             // Replace with actual vitals data
             _buildVitalsTracker(),
           ],

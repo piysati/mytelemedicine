@@ -1,11 +1,9 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:my_telemedicine/features/app/screens/splash_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/widgets.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+// Import Firebase Auth
 
 import 'package:my_telemedicine/features/user_auth/presentation/pages/home_page.dart';
 import 'package:my_telemedicine/features/user_auth/presentation/pages/login_page.dart';
@@ -40,23 +38,16 @@ void main() async{
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Firebase',
-      routes: {
-        '/': (context) => SplashScreen(
-          // Here, you can decide whether to show the LoginPage or HomePage based on user authentication
-          child: LoginPage(),
-        ),
-        '/login': (context) => LoginPage(),
-        '/signUp': (context) => SignUpPage(),
-        '/home': (context) => HomePage(),
-      },
-    );
-  }
+ @override
+ Widget build(BuildContext context) => MaterialApp(
+   debugShowCheckedModeBanner: false,
+   title: 'Flutter Firebase',
+   routes: {
+    '/login': (context) => const LoginPage(),
+    '/signup': (context) => const SignUpPage(),
+    '/home': (context) => const HomePage(),
+   },
+ );
 }
 
 class MyAppState extends ChangeNotifier {
