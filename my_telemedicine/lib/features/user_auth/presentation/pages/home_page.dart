@@ -1,194 +1,214 @@
-import 'dart:ffi';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-
-
-import '../../../../global/common/toast.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  User? _user;
+  String _role = "";
+  String _name = "";
+  bool _isLoading = true;
+
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _getCurrentUser();
+  }
+
+  Future<void> _getCurrentUser() async {
+    _user = FirebaseAuth.instance.currentUser;
+    await _fetchUserData();
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      if (_user != null) {
+        await _user!.reload();
+        _user = FirebaseAuth.instance.currentUser;
+        if (_user != null) {
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          if (userDoc.exists) {
+            Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
+            _role = (data?['role'] ?? "") as String;
+            _name = (data?['fullName'] ?? "") as String;
+          }
+        }
+      }
+    } catch (e) {
+      print("Error fetching user data: $e");
+      // Consider showing an error message to the user
+      setState(() {});
+    }
+  }
+
+  Widget _buildDoctorHomePage() {
     return Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: Text("HomePage"),
+      appBar: AppBar(title: const Text("Home Page")),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Welcome, Dr. ${_name ?? 'Doctor'}",
+                style: Theme.of(context).textTheme.headline5),
+            const SizedBox(height: 20),
+            Text("My Patients", style: Theme.of(context).textTheme.headline6),
+            // Replace with actual patient list data
+            _buildPatientList(),
+            const SizedBox(height: 20),
+            Text("Upcoming Appointments",
+                style: Theme.of(context).textTheme.headline6),
+            // Replace with actual appointment data
+            _buildAppointmentList(),
+          ],
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  _createData(UserModel(
-                    username: "Henry",
-                    age: 21,
-                    adress: "London",
-                  ));
-                },
-                child: Container(
-                  height: 45,
-                  width: 100,
-                  decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Center(
-                    child: Text(
-                      "Create Data",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 10),
-              StreamBuilder<List<UserModel>>(
-                stream: _readData(),
-                builder: (context, snapshot) {
-                  if(snapshot.connectionState == ConnectionState.waiting){
-                    return Center(child: CircularProgressIndicator(),);
-                  } if(snapshot.data!.isEmpty){
-                    return Center(child:Text("No Data Yet"));
-                  }
-                  final users = snapshot.data;
-                  return Padding(padding: EdgeInsets.all(8),
-                  child: Column(
-                    children: users!.map((user) {
-                      return ListTile(
-                        leading: GestureDetector(
-                          onTap: (){
-                            _deleteData(user.id!);
-                          },
-                          child: Icon(Icons.delete),
-                        ),
-                        trailing: GestureDetector(
-                          onTap: (){
-                            _updateData(
-                              UserModel(
-                                id: user.id,
-                                username: "John Wick",
-                                adress: "Pakistan",)
-                            );
-                          },
-                          child: Icon(Icons.update),
-                        ),
-                        title: Text(user.username!),
-                        subtitle: Text(user.adress!),
-                      );
-                    }).toList()
-                  ),);
-                }
-              ),
-
-              GestureDetector(
-                onTap: () {
-                  FirebaseAuth.instance.signOut();
-                  Navigator.pushNamed(context, "/login");
-                  showToast(message: "Successfully signed out");
-                },
-                child: Container(
-                  height: 45,
-                  width: 100,
-                  decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Center(
-                    child: Text(
-                      "Sign out",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18),
-                    ),
-                  ),
-                ),
-              )
-            ],
-          ),
-        ));
-  }
-
-  Stream<List<UserModel>> _readData(){
-    final userCollection = FirebaseFirestore.instance.collection("users");
-
-    return userCollection.snapshots().map((qureySnapshot)
-    => qureySnapshot.docs.map((e)
-    => UserModel.fromSnapshot(e),).toList());
-  }
-
-  void _createData(UserModel userModel) {
-    final userCollection = FirebaseFirestore.instance.collection("users");
-
-    String id = userCollection.doc().id;
-
-    final newUser = UserModel(
-      username: userModel.username,
-      age: userModel.age,
-      adress: userModel.adress,
-        id: id,
-    ).toJson();
-
-    userCollection.doc(id).set(newUser);
-  }
-
-  void _updateData(UserModel userModel) {
-    final userCollection = FirebaseFirestore.instance.collection("users");
-
-    final newData = UserModel(
-      username: userModel.username,
-      id: userModel.id,
-      adress: userModel.adress,
-      age: userModel.age,
-    ).toJson();
-
-    userCollection.doc(userModel.id).update(newData);
-
-  }
-
-  void _deleteData(String id) {
-    final userCollection = FirebaseFirestore.instance.collection("users");
-
-    userCollection.doc(id).delete();
-
-  }
-
-}
-
-class UserModel{
-  final String? username;
-  final String? adress;
-  final int? age;
-  final String? id;
-
-  UserModel({this.id,this.username, this.adress, this.age});
-
-
-  static UserModel fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot){
-    return UserModel(
-      username: snapshot['username'],
-      adress: snapshot['adress'],
-      age: snapshot['age'],
-      id: snapshot['id'],
+      ),
     );
   }
 
-  Map<String, dynamic> toJson(){
-    return {
-      "username": username,
-      "age": age,
-      "id": id,
-      "adress": adress,
-    };
+  Widget _buildPatientList() {
+    // Replace with your data fetching logic
+    List<Map<String, String>> patients = [
+      {"name": "Alice", "condition": "Diabetes", "lastDiagnosis": "2024-01-15"},
+      {"name": "Bob", "condition": "Hypertension", "lastDiagnosis": "2023-12-20"},
+    ];
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      itemCount: patients.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: EdgeInsets.symmetric(vertical: 8.0),
+          child: ListTile(
+            title: Text(patients[index]["name"]!),
+            subtitle: Text(
+                "Condition: ${patients[index]["condition"]!}, Last Diagnosis: ${patients[index]["lastDiagnosis"]!}"),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                    icon: Icon(Icons.person), onPressed: () {}), // View Profile
+                IconButton(icon: Icon(Icons.notes), onPressed: () {}), // Add Notes
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAppointmentList() {
+    // Replace with your data fetching logic
+    List<Map<String, String>> appointments = [
+      {
+        "time": "10:00 AM",
+        "patientName": "Charlie",
+        "reason": "Follow-up Checkup"
+      },
+      {"time": "2:30 PM", "patientName": "Diana", "reason": "Initial Consultation"},
+    ];
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      itemCount: appointments.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: EdgeInsets.symmetric(vertical: 8.0),
+          child: ListTile(
+            title: Text("${appointments[index]["time"]!} - ${appointments[index]["patientName"]!}"),
+            subtitle: Text("Reason: ${appointments[index]["reason"]!}"),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(icon: Icon(Icons.check), onPressed: () {}), // Accept
+                IconButton(icon: Icon(Icons.close), onPressed: () {}), // Reject
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPatientCaregiverHomePage() {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Home Page")),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Welcome, ${_name ?? 'User'}",
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 20),
+            Text("Latest Health Report",
+                style: Theme.of(context).textTheme.titleMedium),
+            // Replace with actual report data
+            _buildHealthReport(),
+            const SizedBox(height: 20),
+            Text("Medical History",
+                style: Theme.of(context).textTheme.titleMedium),
+            // Replace with actual medical history data
+            _buildMedicalHistory(),
+            const SizedBox(height: 20),
+            Text("Health Condition Tracker",
+                style: Theme.of(context).textTheme.titleMedium),
+            // Replace with actual vitals data
+            _buildVitalsTracker(),
+            ElevatedButton(
+              onPressed: () {}, // Navigate to booking screen
+              child: const Text("Book Appointment"),
+            ),
+            const SizedBox(height: 20),
+            Text("Medical History",
+                style: Theme.of(context).textTheme.headline6),
+            // Replace with actual medical history data
+            _buildMedicalHistory(),
+            const SizedBox(height: 20),
+            Text("Health Condition Tracker",
+                style: Theme.of(context).textTheme.headline6),
+            // Replace with actual vitals data
+            _buildVitalsTracker(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Placeholder widgets - replace with actual content
+  Widget _buildHealthReport() =>
+      ListTile(title: Text("No report available"), subtitle: Text(""));
+  Widget _buildMedicalHistory() =>
+      ListTile(title: Text("No history available"), subtitle: Text(""));
+  Widget _buildVitalsTracker() =>
+      ListTile(title: Text("No vitals tracked"), subtitle: Text(""));
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_user == null) {
+      return Scaffold(body: Center(child: Text("User not found")));
+    } else {
+      return _role == 'Doctor'
+          ? _buildDoctorHomePage()
+          : _buildPatientCaregiverHomePage();
+    }
   }
 }
