@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,20 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
+  String? _selectedSpecialization;
+  List<Map<String, dynamic>> _doctors = [];
+  Map<String, dynamic>? _selectedDoctor;
+  Map<String, dynamic>? _selectedSlot;
+
+
+  // Hardcoded specializations for now
+  final List<String> _specializations = [
+    "Cardiology",
+    "Pediatrics",
+    "Dermatology",
+    "Oncology"
+  ];
 
   @override
   void dispose() {
@@ -28,8 +44,22 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     _reasonController.dispose();
     super.dispose();
   }
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() => _selectedDate = picked);
+    }
+    _reasonController.dispose();
+    super.dispose();
+  }
 
   Widget build(BuildContext context) {
+    final dateString = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
     return Scaffold(
       appBar: AppBar(
         title: const Text("Book Appointment"),
@@ -39,37 +69,32 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FormContainerWidget(
-                controller: _dateController,
-                hintText: "Date (YYYY-MM-DD)",
-                isPasswordField: false,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Please enter a date";
-                  }
-                  // Basic date format validation
-                  if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
-                    return "Please enter a valid date (YYYY-MM-DD)";
-                  }
-                  return null;
+              DropdownButtonFormField<String>(
+                value: _selectedSpecialization,
+                items: _specializations.map((String specialization) {
+                  return DropdownMenuItem<String>(
+                    value: specialization,
+                    child: Text(specialization),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedSpecialization = newValue;
+                    _allocateDoctor(_selectedSpecialization);
+                  });
                 },
+                decoration: const InputDecoration(
+                  labelText: "Specialization",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                    value == null ? 'Please select a specialization' : null,
               ),
               const SizedBox(height: 16),
               FormContainerWidget(
-                controller: _timeController,
-                hintText: "Time (HH:MM)",
-                isPasswordField: false,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Please enter a time";
-                  }
-                  // Basic time format validation
-                  if (!RegExp(r'^\d{2}:\d{2}$').hasMatch(value)) {
-                    return "Please enter a valid time (HH:MM)";
-                  }
-                  return null;
-                },
+                controller: _reasonController,
               ),
               const SizedBox(height: 16),
               FormContainerWidget(
@@ -84,9 +109,61 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                 },
               ),
               const SizedBox(height: 32),
+                   ElevatedButton(onPressed:() => _selectDate(context) , child: Text("Select Date :${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}")),
+                       const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _bookAppointment,
-                child: const Text("Book Appointment"),
+                child: const Text("Book Appointment"),),
+              const SizedBox(height: 20),
+              _doctors.isEmpty
+                  ?  const Center(child: Text("No doctors found for the selected specialization"),)
+                  : Expanded(
+                      child: ListView.builder(
+                        itemCount: _doctors.length,
+                        itemBuilder: (context, index) {
+                          final doctorAvailability = _doctors[index];
+                          final doctor = doctorAvailability["doctor"];
+                          return Card(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ListTile(
+                                  title: Text("Dr. ${doctor.fullName}"),
+                                ),
+                                ...doctorAvailability["slots"].map<Widget>((slot) {
+                                  final isSelected = _selectedSlot == slot && _selectedDoctor == doctor;
+                                  return Card(
+                                    color: isSelected ? Colors.blue[100] : null,
+                                    child: ListTile(
+                                      onTap: () => setState(() {
+                                        _selectedSlot = slot;
+                                        _selectedDoctor = doctor;
+                                      }),
+                                      title: Text(slot["isBooked"]
+                                          ? "BOOKED"
+                                          : "${slot["startTime"]} - ${slot["endTime"]}"),
+                                    ),
+                                  );
+                                }).toList(),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                   if (_selectedSpecialization != null && _doctors.isEmpty) ...[
+                    const Center(
+                        child: Text(
+                            "No doctors available for this specialization in this date")),
+                  ] else if (_selectedSpecialization == null) ...[
+                    const Center(
+                      child: Text(
+                        "Select a specialization to see available doctors",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ] else if (_doctors.isNotEmpty)...[
+                     const SizedBox(height: 20),]
               ),
             ],
           ),
@@ -95,25 +172,41 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     );
   }
 
-  void _bookAppointment() async {
+  void _bookAppointment() async { 
+     if (_selectedSlot == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a time slot")));
+      return;
+    }
+     if (_selectedSlot!["isBooked"] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This time slot is already booked")));
+      return;
+    }
+        if (_selectedDoctor == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Select a doctor first")));
+    }
     try {
       if (_formKey.currentState!.validate()) {
         final user = FirebaseAuth.instance.currentUser;
         if (user == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("User not logged in")),
+              const SnackBar(content: Text("User not logged in")),
           );
           return;
         }
-
+        final firestoreService = FirebaseFirestoreService();
         final appointmentDto = AppointmentDTO(
           patientId: user.uid,
-          doctorId: await _allocateDoctor(), // Replace with actual doctor selection logic
-          date: _dateController.text,
-          time: _timeController.text,
+          doctorId: _selectedDoctor!.uid,
+          date: dateString,
+          time: "${_selectedSlot!['startTime']} - ${_selectedSlot!['endTime']}",
           reason: _reasonController.text,
         );
-        await FirebaseFirestoreService().addAppointment(appointmentDto);
+        //make it booked
+        await firestoreService.saveDoctorAvailabilitySlot(_selectedDoctor!.uid,dateString, _selectedSlot!["startTime"], _selectedSlot!["endTime"], isBooked: true);
+        await firestoreService.addAppointment(appointmentDto);
 
         _showConfirmationDialog();
       }
@@ -146,45 +239,38 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     );
   }
 
-  Future<String> _allocateDoctor() async {
+  Future<void> _allocateDoctor(String? specialization) async {
+     setState(() {
+      _doctors = [];
+    });
     try {
+        
+      setState(() { });
       final firestoreService = FirebaseFirestoreService();
-      // Assuming you have a way to determine the required specialty
-      // For now, we'll just fetch all doctors and select one randomly
-      final doctors = await firestoreService.getDoctorsBySpecialization("Cardiology");
-
+      if (specialization == null || specialization.isEmpty) {
+        return;
+      }
+      final doctors =
+          await firestoreService.getDoctorsBySpecialization(specialization);
       if (doctors.isEmpty) {
-        // Handle case where no doctors are available for the given specialty
-        if (kDebugMode) {
-          print("No doctors available for the given specialty");
-        }
-        return ""; // Or throw an exception, or return a default doctor ID
+        return;
       }
-
-      //For now, we are selecting doctor randomly, you can add other logic like
-      // availability, ratings etc.
-      final random = DateTime.now().microsecondsSinceEpoch % doctors.length;
-      final selectedDoctor = doctors[random];
-      if (kDebugMode) {
-        print("Selected doctor: ${selectedDoctor.fullName}");
+      final String dateString =
+          "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+      List<Map<String, dynamic>> allDoctorsWithAvailability = [];
+      for (var doctor in doctors) {
+        final List<Map<String, dynamic>> doctorAvailability =
+            await firestoreService.getDoctorAvailabilityByDate(
+                doctor.uid, dateString);
+        allDoctorsWithAvailability.add({"doctor": doctor, "slots": doctorAvailability});
       }
-      return selectedDoctor.uid;
-    } catch (e) {
-      // Handle errors, e.g., no doctors found, Firestore error
+      setState(() => _doctors = allDoctorsWithAvailability);
+    } on Exception catch (e) {
       if (kDebugMode) {
         print("Error allocating doctor: $e");
       }
-      // You might want to show an error message to the user
-      // and/or return a default doctor ID or throw an exception
-      return ""; // Or throw an exception, or return a default doctor ID
+    } finally {
+      setState(() { });
     }
   }
 }
-
-
-
-
-
-
-
-
