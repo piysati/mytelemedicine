@@ -1,11 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
 import 'package:my_telemedicine/features/chat/domain/message_dto.dart';
 
-import '../../domain/user_dto.dart';
+import 'package:my_telemedicine/features/user_auth/domain/user_dto.dart';
 
 class FirebaseFirestoreService {
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Get current authenticated user - Added for ChatPage compatibility
+  User? getCurrentUser() {
+    return _auth.currentUser;
+  }
+  
+  // Added alias for sendMessage to support ChatPage
+  Future<void> addMessage(MessageDTO message) async {
+    return sendMessage(message);
+  }
+
+
   Future<void> addUserToFirestore(String uid, Map<String, dynamic> data) async {
     await FirebaseFirestore.instance.collection('users').doc(uid).set(data);
   }

@@ -164,7 +164,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                     ),
                   ] else if (_doctors.isNotEmpty)...[
                      const SizedBox(height: 20),]
-              ),
             ],
           ),
         ),
@@ -173,6 +172,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   void _bookAppointment() async { 
+      final dateString = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+
      if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select a time slot")));

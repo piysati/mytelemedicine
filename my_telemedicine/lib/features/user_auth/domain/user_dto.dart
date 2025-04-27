@@ -7,6 +7,22 @@ abstract class UserDTO {
   UserDTO(this.fullName, this.email, this.phoneNumber, this.role);
 
   Map<String, dynamic> toJson();
+
+    // Factory constructor to be implemented by subclasses
+  static UserDTO fromJson(Map<String, dynamic> json) {
+    final role = json['role'] as String;
+    
+    switch (role) {
+      case 'Patient':
+        return PatientDTO.fromJson(json);
+      case 'Doctor':
+        return DoctorDTO.fromJson(json);
+      case 'Caretaker':
+        return CaretakerDTO.fromJson(json);
+      default:
+        throw FormatException('Unknown role: $role');
+    }
+  }
 }
 
 class PatientDTO extends UserDTO {
@@ -26,6 +42,20 @@ class PatientDTO extends UserDTO {
     required this.emergencyContact,
     required this.preferredLanguage,
   }) : super(fullName, email, phoneNumber, 'Patient');
+
+    // Factory constructor for creating a PatientDTO from JSON
+  factory PatientDTO.fromJson(Map<String, dynamic> json) {
+    return PatientDTO(
+      fullName: json['fullName'] as String,
+      email: json['email'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      age: json['age'] as int,
+      gender: json['gender'] as String,
+      healthConditions: List<String>.from(json['healthConditions']),
+      emergencyContact: json['emergencyContact'] as String,
+      preferredLanguage: json['preferredLanguage'] as String,
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => {
@@ -61,6 +91,23 @@ class DoctorDTO extends UserDTO {
     required this.consultationFee,
   }) : super(fullName, email, phoneNumber, 'Doctor');
 
+    // Factory constructor for creating a DoctorDTO from JSON
+  factory DoctorDTO.fromJson(Map<String, dynamic> json) {
+    return DoctorDTO(
+      fullName: json['fullName'] as String,
+      email: json['email'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      specialization: json['specialization'] as String,
+      experience: json['experience'] as int,
+      affiliation: json['affiliation'] as String,
+      licenseId: json['licenseId'] as String,
+      availableTimings: json['availableTimings'] as String,
+      consultationFee: (json['consultationFee'] is int) 
+          ? (json['consultationFee'] as int).toDouble() 
+          : json['consultationFee'] as double,
+    );
+  }
+
   @override
   Map<String, dynamic> toJson() => {
         "fullName": fullName,
@@ -91,6 +138,19 @@ class CaretakerDTO extends UserDTO {
     required this.patientContact,
     required this.accessPermissions,
   }) : super(fullName, email, phoneNumber, 'Caretaker');
+
+    // Factory constructor for creating a CaretakerDTO from JSON
+  factory CaretakerDTO.fromJson(Map<String, dynamic> json) {
+    return CaretakerDTO(
+      fullName: json['fullName'] as String,
+      email: json['email'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      patientName: json['patientName'] as String,
+      relationToPatient: json['relationToPatient'] as String,
+      patientContact: json['patientContact'] as String,
+      accessPermissions: json['accessPermissions'] as String,
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => {
