@@ -3,6 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
 import 'package:my_telemedicine/features/chat/domain/message_dto.dart';
+import 'package:my_telemedicine/features/app/domain/doctor_dto.dart';
 import 'package:my_telemedicine/features/prescription/domain/prescription_dto.dart';
 
 import '../../domain/user_dto.dart';
@@ -105,7 +106,6 @@ class FirebaseFirestoreService {
 
     });
   }
-
   Future<List<DoctorDTO>> getDoctorsBySpecialization(String specialization) async {
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -113,14 +113,15 @@ class FirebaseFirestoreService {
           .where('role', isEqualTo: 'Doctor')
           .where('specialization', isEqualTo: specialization)
           .get();
-
       return querySnapshot.docs.map((doc) {
+        print('doc: ${doc.data()}');
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         return DoctorDTO.fromJson(data);
       }).toList();
     } catch (e) {
       print("Error fetching doctors: $e");
       return [];
+
     }
   }
 
@@ -195,7 +196,7 @@ class FirebaseFirestoreService {
         }).toList();
       });
     } catch (e) {
-      return Stream.value([]);
+      return Stream.value(<MessageDTO>[]);
     }
   }
 

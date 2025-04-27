@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
 import 'package:my_telemedicine/features/chat/presentation/pages/chat_page.dart';
+import 'package:my_telemedicine/features/app/domain/doctor_dto.dart';
 // import 'package:my_telemedicine/features/app/models/appointment_model.dart';
 
 import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
@@ -25,7 +26,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   final TextEditingController _reasonController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   String? _selectedSpecialization;
-  List<Map<String, dynamic>> _doctors = [];
+  List<Map<String, dynamic>> _doctors = []; 
   Map<String, dynamic>? _selectedDoctor;
   Map<String, dynamic>? _selectedSlot;
 
@@ -123,7 +124,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                         itemCount: _doctors.length,
                         itemBuilder: (context, index) {
                           final doctorAvailability = _doctors[index];
-                          final doctor = doctorAvailability["doctor"];
+                          final doctor = doctorAvailability["doctor"] as DoctorDTO;
                           return Card(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,10 +186,11 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       return;
     }
         if (_selectedDoctor == null) {
+          
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Select a doctor first")));
     }
-    try {
+     try {
       if (_formKey.currentState!.validate()) {
         final user = FirebaseAuth.instance.currentUser;
         if (user == null) {
@@ -200,14 +202,15 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         }
         final firestoreService = FirebaseFirestoreService();
         final appointmentDto = AppointmentDTO(
-          patientId: user.uid,
-          doctorId: _selectedDoctor!.uid,
-          date: dateString,
-          time: "${_selectedSlot!['startTime']} - ${_selectedSlot!['endTime']}",
-          reason: _reasonController.text,
+            patientId: user.uid,
+            doctorId: (_selectedDoctor!["doctor"] as DoctorDTO).uid,
+            date: dateString,
+            time: "${_selectedSlot!['startTime']} - ${_selectedSlot!['endTime']}",
+            reason: _reasonController.text,
         );
-        //make it booked
-        await firestoreService.saveDoctorAvailabilitySlot(_selectedDoctor!.uid,dateString, _selectedSlot!["startTime"], _selectedSlot!["endTime"], isBooked: true);
+
+       await firestoreService.saveDoctorAvailabilitySlot((_selectedDoctor!["doctor"] as DoctorDTO).uid,
+            dateString, _selectedSlot!["startTime"], _selectedSlot!["endTime"], isBooked: true);
         await firestoreService.addAppointment(appointmentDto);
         QuerySnapshot querySnapshot = await FirebaseFirestore.instance
             .collection('appointments')
@@ -263,7 +266,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       if (specialization == null || specialization.isEmpty) {
         return;
       }
-      final doctors =
+      final List<DoctorDTO> doctors =
           await firestoreService.getDoctorsBySpecialization(specialization);
       if (doctors.isEmpty) {
         return;
@@ -275,7 +278,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         final List<Map<String, dynamic>> doctorAvailability =
             await firestoreService.getDoctorAvailabilityByDate(
                 doctor.uid, dateString);
-        allDoctorsWithAvailability.add({"doctor": doctor, "slots": doctorAvailability});
+        allDoctorsWithAvailability.add({"doctor": doctor,"slots": doctorAvailability});
       }
       setState(() => _doctors = allDoctorsWithAvailability);
     } on Exception catch (e) {
