@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
 import 'package:my_telemedicine/features/chat/domain/message_dto.dart';
+import 'package:my_telemedicine/features/prescription/domain/prescription_dto.dart';
 
 import '../../domain/user_dto.dart';
 
@@ -10,13 +12,97 @@ class FirebaseFirestoreService {
     await FirebaseFirestore.instance.collection('users').doc(uid).set(data);
   }
 
-  Future<void> addAppointment(AppointmentDTO appointmentDTO) async {
-     await FirebaseFirestore.instance.collection('appointments').add({
-      'patientId': appointmentDTO.patientId,
-      'doctorId': appointmentDTO.doctorId,
-      'date': appointmentDTO.date,
-      'time': appointmentDTO.time,
-      'reason': appointmentDTO.reason,
+  Future<bool> isDoctorInMeeting(String doctorId, String appointmentId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(doctorId)
+          .get();
+
+      if (doc.exists &&
+          doc.data()?.containsKey('meetingId') == true &&
+          doc.data()?['meetingId'] == appointmentId) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Error getting doctor meeting: $e");
+      return false;
+    }
+  }
+
+  Future<void> addPrescription(PrescriptionDTO prescription) async {
+    try {
+      await FirebaseFirestore.instance.collection('prescriptions').add(prescription.toJson());
+    } catch (e) {
+      print("Error adding prescription: $e");
+  }
+
+  Future<void> updateCaregivers(String patientId, List<String> caregiverIds) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .update({'caregiverIds': caregiverIds});
+    } catch (e) {
+      print("Error updating caregiverIds: $e");
+    }
+  }
+
+    Future<List<PrescriptionDTO>> getPrescriptionsByPatient(String patientId, String userId, String userRole) async {
+    try {
+      QuerySnapshot querySnapshot;
+      if (userRole == 'Patient') {
+        // If the user is a patient, get the prescriptions where the patientId is equal to the user id or the user id is in the caregiverIds of the prescription
+        querySnapshot = await FirebaseFirestore.instance
+            .collection('prescriptions')
+            .where('patientId', whereIn: [userId])
+            .get();
+        
+        final querySnapshot2 = await FirebaseFirestore.instance.collection('prescriptions').where('caregiverIds', arrayContains: userId).get();
+        querySnapshot = QuerySnapshot(querySnapshot.docs + querySnapshot2.docs, querySnapshot.metadata);
+      } else {
+        // If the user is a doctor, get the prescriptions where the patientId is equal to the patientId received in the parameter
+        querySnapshot = await FirebaseFirestore.instance
+            .collection('prescriptions')
+            .where('patientId', isEqualTo: patientId).get();
+      }
+      return querySnapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return PrescriptionDTO.fromJson(data);
+      }).toList();
+    } catch (e) {
+      print("Error fetching prescriptions: $e");
+      return [];
+    }
+  }
+
+
+  Future<String> uploadPrescriptionPdf(
+      String prescriptionId, String patientId, List<int> pdfBytes) async {
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('prescriptions/$patientId/$prescriptionId.pdf');
+      final uploadTask = storageRef.putData(pdfBytes);
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print("Error uploading prescription PDF: $e");
+      return "";
+    }
+  }
+
+  Future<void> updatePrescriptionPdfUrl(
+      String prescriptionId, String pdfUrl) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('prescriptions')
+          .doc(prescriptionId).update({'pdfUrl': pdfUrl});
+    } catch (e) {
+      print("Error updating prescription PDF URL: $e");
+
     });
   }
 
@@ -38,6 +124,27 @@ class FirebaseFirestoreService {
     }
   }
 
+    Future<List<AppointmentDTO>> getDoctorAppointments(String doctorId) async {
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('doctorId', isEqualTo: doctorId)
+          .get();
+
+      return querySnapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        // Add the document ID to the data
+        data['id'] = doc.id;
+        return AppointmentDTO.fromJson(data);
+      }).toList();
+    } catch (e) {
+      print("Error fetching doctor appointments: $e");
+      return [];
+    }
+  }
+
+
+
   Future<void> sendMessage(MessageDTO message) async {
     try {
       await FirebaseFirestore.instance
@@ -48,6 +155,7 @@ class FirebaseFirestoreService {
     }
   }
 
+
   Stream<List<MessageDTO>> getMessages(String appointmentId) {
     try {
       return FirebaseFirestore.instance
@@ -57,6 +165,25 @@ class FirebaseFirestoreService {
           .snapshots()
           .map((snapshot) {
         return snapshot.docs.map((doc) {
+          
+    Future<List<UserDTO>> getDoctorPatients(String doctorId) async {
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('doctorId', isEqualTo: doctorId)
+          .get();
+      List<String> patientIds = querySnapshot.docs.map((doc) => doc.data() as Map<String,dynamic>)
+          .map((data) => data['patientId'] as String)
+          .toSet().toList();
+
+      QuerySnapshot patientsSnapshot = await FirebaseFirestore.instance.collection('users')
+        .where('uid', whereIn: patientIds).get();
+       return patientsSnapshot.docs.map((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return UserDTO.fromJson(data);
+        }).toList();
+    } catch (e) {
+      print("Error fetching doctor patients: $e");
           try {
             return MessageDTO.fromMap(doc.data());
           } catch (e) {
@@ -155,4 +282,7 @@ class FirebaseFirestoreService {
       return true; // Assume overlap to avoid booking conflicts in case of error
     }
   }
+
 }
+
+

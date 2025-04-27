@@ -1,9 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 // Import Firebase Auth
+import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
+import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_firestore_service.dart';
+import 'package:my_telemedicine/features/chat/presentation/pages/chat_page.dart';
+
 
 import 'package:my_telemedicine/features/user_auth/presentation/pages/home_page.dart';
 import 'package:my_telemedicine/features/user_auth/presentation/pages/login_page.dart';
@@ -19,7 +24,32 @@ import 'package:my_telemedicine/features/user_auth/presentation/pages/sign_up_pa
 //   measurementId: "G-97KY3YXFFR"            //"G-DZRD9LZHVB"
 // };
 
+Future<void> createAppointment() async{
+  final firestoreService = FirebaseFirestoreService();
+    final appointmentDto = AppointmentDTO(
+      patientId: 'patient123',
+      doctorId: 'doctor123',
+      date: '2024-12-25',
+      time: '10:00-11:00',
+      reason: 'checkup',
+    );
+    await firestoreService.addAppointment(appointmentDto);
+}
+
+Future<void> createDoctor() async {
+  final firestoreService = FirebaseFirestoreService();
+  final doctorData = {
+    'uid': 'doctor123',
+    'fullName': 'Dr. John Doe',
+    'email': 'john.doe@example.com',
+    'role': 'Doctor',
+    'specialization': 'Cardiology',
+  };
+  await firestoreService.addUserToFirestore('doctor123', doctorData);
+}
 void main() async{
+  createAppointment();
+
   WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
   
   if(kIsWeb){
@@ -31,6 +61,7 @@ void main() async{
   }else{
     await Firebase.initializeApp();
   }
+    createDoctor();
   
   runApp(MyApp());
 }
@@ -46,6 +77,7 @@ class MyApp extends StatelessWidget {
     '/login': (context) => const LoginPage(),
     '/signup': (context) => const SignUpPage(),
     '/home': (context) => const HomePage(),
+    '/chat': (context) =>  ChatPage(appointmentId: ModalRoute.of(context)!.settings.arguments as String),
    },
  );
 }

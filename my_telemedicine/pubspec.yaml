@@ -25,6 +25,7 @@ dependencies:
   fluttertoast: ^8.2.2
   font_awesome_flutter: ^10.6.0
   hmssdk_flutter: ^1.10.6 
+  permission_handler: ^12.0.0+1
 
 dev_dependencies:
   flutter_test:

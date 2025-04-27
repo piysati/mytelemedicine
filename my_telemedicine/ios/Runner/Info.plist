@@ -43,6 +43,12 @@
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture your video during meetings.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Allow access to Camera to network to enable video calling.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access to capture your audio during meetings.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 </dict>

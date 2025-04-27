@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
+import 'package:my_telemedicine/features/user_auth/domain/user_dto.dart';
+import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_firestore_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,6 +17,8 @@ class _HomePageState extends State<HomePage> {
   String _role = "";
   String _name = "";
   bool _isLoading = true;
+  List<AppointmentDTO> _appointments = [];
+  List<UserDTO> _patients = [];
 
   @override
   void initState() {
@@ -54,6 +59,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDoctorHomePage() {
+    _loadDoctorData();
     return Scaffold(
       appBar: AppBar(title: const Text("Home Page")),
       body: SingleChildScrollView(
@@ -65,13 +71,35 @@ class _HomePageState extends State<HomePage> {
                 style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 20),
             Text("My Patients", style: Theme.of(context).textTheme.titleLarge),
-            // Replace with actual patient list data
-            _buildPatientList(),
+             _isLoading ? const Center(child: CircularProgressIndicator()) : _buildPatientList(),
             const SizedBox(height: 20),
             Text("Upcoming Appointments",
                 style: Theme.of(context).textTheme.titleLarge),
-            // Replace with actual appointment data
-            _buildAppointmentList(),
+            _isLoading ? const Center(child: CircularProgressIndicator()) : _buildAppointmentList(),
+          ],
+        ),
+      ),
+    );
+  }
+  Future<void> _loadDoctorData() async {
+    setState(() => _isLoading = true);
+    try {
+      if (_user != null) {
+        final firestoreService = FirebaseFirestoreService();
+        final appointments = await firestoreService.getDoctorAppointments(_user!.uid);
+        final patients = await firestoreService.getDoctorPatients(_user!.uid);
+
+        setState(() {
+          _appointments = appointments;
+          _patients = patients;
+        });
+      }
+    } catch (e) {
+      print('Error loading doctor data: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
           ],
         ),
       ),
@@ -79,21 +107,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildPatientList() {
-    // Replace with your data fetching logic
-    List<Map<String, String>> patients = [
-      {"name": "Alice", "condition": "Diabetes", "lastDiagnosis": "2024-01-15"},
-      {"name": "Bob", "condition": "Hypertension", "lastDiagnosis": "2023-12-20"},
-    ];
-
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
-      itemCount: patients.length,
+      itemCount: _patients.length,
       itemBuilder: (context, index) {
+        final patient = _patients[index];
         return Card(
           margin: EdgeInsets.symmetric(vertical: 8.0),
           child: ListTile(
-            title: Text(patients[index]["name"]!),
+              title: Text(patient.fullName),
+
+            
             subtitle: Text(
                 "Condition: ${patients[index]["condition"]!}, Last Diagnosis: ${patients[index]["lastDiagnosis"]!}"),
             trailing: Row(
@@ -111,21 +136,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAppointmentList() {
-    // Replace with your data fetching logic
-    List<Map<String, String>> appointments = [
-      {
-        "time": "10:00 AM",
-        "patientName": "Charlie",
-        "reason": "Follow-up Checkup"
-      },
-      {"time": "2:30 PM", "patientName": "Diana", "reason": "Initial Consultation"},
-    ];
-
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
-      itemCount: appointments.length,
+      itemCount: _appointments.length,
       itemBuilder: (context, index) {
+        final appointment = _appointments[index];
+        
+
+
         return Card(
           margin: EdgeInsets.symmetric(vertical: 8.0),
           child: ListTile(

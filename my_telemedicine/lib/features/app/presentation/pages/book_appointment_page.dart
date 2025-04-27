@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
+import 'package:my_telemedicine/features/chat/presentation/pages/chat_page.dart';
 // import 'package:my_telemedicine/features/app/models/appointment_model.dart';
 
 import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
@@ -172,11 +173,11 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     );
   }
 
-  void _bookAppointment() async { 
+  void _bookAppointment() async {
      if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select a time slot")));
-      return;
+          return;
     }
      if (_selectedSlot!["isBooked"] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,6 +192,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       if (_formKey.currentState!.validate()) {
         final user = FirebaseAuth.instance.currentUser;
         if (user == null) {
+
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("User not logged in")),
           );
@@ -207,31 +209,42 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         //make it booked
         await firestoreService.saveDoctorAvailabilitySlot(_selectedDoctor!.uid,dateString, _selectedSlot!["startTime"], _selectedSlot!["endTime"], isBooked: true);
         await firestoreService.addAppointment(appointmentDto);
+        QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+            .collection('appointments')
+            .where('doctorId', isEqualTo: appointmentDto.doctorId)
+            .where('patientId', isEqualTo: appointmentDto.patientId)
+            .where('date', isEqualTo: appointmentDto.date)
+            .where('time', isEqualTo: appointmentDto.time)
+            .get();
+        final appointmentId = querySnapshot.docs.first.id;
 
-        _showConfirmationDialog();
+        _showConfirmationDialog(appointmentId);
       }
     } catch (e) {
       print("Error booking appointment: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error booking appointment: $e")),
+          SnackBar(content: Text("Error booking appointment: $e")),
       );
     }
   }
 
-  void _showConfirmationDialog() {
+  void _showConfirmationDialog(String appointmentId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Appointment Booked"),
-          content: const Text("Your appointment has been booked successfully."),
+          title: const Text('Appointment Booked'),
+          content: const Text('Your appointment has been booked successfully.'),
           actions: [
             TextButton(
+              child: const Text('Go to Chat'),
               onPressed: () {
-                Navigator.pop(context); // Close the dialog
-                Navigator.pop(context); // Go back to the previous screen
+                Navigator.pushNamed(context, '/chat', arguments: {'appointmentId': appointmentId});
               },
-              child: const Text("OK"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
             ),
           ],
         );
@@ -244,7 +257,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       _doctors = [];
     });
     try {
-        
+
       setState(() { });
       final firestoreService = FirebaseFirestoreService();
       if (specialization == null || specialization.isEmpty) {
