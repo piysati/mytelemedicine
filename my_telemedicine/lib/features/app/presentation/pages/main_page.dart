@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:my_telemedicine/features/app/domain/doctor_dto.dart';
 import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/auth_service.dart';
 import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_firestore_service.dart';
 import 'package:my_telemedicine/features/prescription/presentation/pages/prescription_list_page.dart';

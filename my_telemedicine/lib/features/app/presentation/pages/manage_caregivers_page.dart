@@ -5,8 +5,7 @@ import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_f
 class ManageCaregiversPage extends StatefulWidget {
   final String patientId;
 
-  const ManageCaregiversPage({Key? key, required this.patientId})
-      : super(key: key);
+  const ManageCaregiversPage({super.key, required this.patientId});
 
   @override
   _ManageCaregiversPageState createState() => _ManageCaregiversPageState();

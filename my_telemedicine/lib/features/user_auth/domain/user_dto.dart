@@ -1,106 +1,62 @@
-abstract class UserDTO {
-  final String fullName;
-  final String email;
-  final String phoneNumber;
-  final String role;
+class UserDTO {
+  String uid;              // Firebase UID
+  String name;
+  String email;
+  String phoneNumber; 
+  String role;             // patient, doctor, caregiver only role not //separate dtois
+  String? specialization;  // Only for doctors
+  double? rating;          // Only for doctors
+  List<String>? caregiverFor;    // UIDs of patients (for caregiver role)
+  String? patientId;
+  String profilePictureUrl; 
+  DateTime createdAt; 
+  bool? isBlocked; 
 
-  UserDTO(this.fullName, this.email, this.phoneNumber, this.role);
+  UserDTO({
+    required this.uid,
+    required this.name,
+    required this.email,
+    required this.phoneNumber,
+    required this.role,
+    this.specialization,
+    this.rating,
+    this.caregiverFor,
+    this.patientId,
+    required this.profilePictureUrl,
+    required this.createdAt,
+    this.isBlocked
+  });
 
-  Map<String, dynamic> toJson();
-}
-
-class PatientDTO extends UserDTO {
-  final int age;
-  final String gender;
-  final List<String> healthConditions;
-  final String emergencyContact;
-  final String preferredLanguage;
-
-  PatientDTO({
-    required String fullName,
-    required String email,
-    required String phoneNumber,
-    required this.age,
-    required this.gender,
-    required this.healthConditions,
-    required this.emergencyContact,
-    required this.preferredLanguage,
-  }) : super(fullName, email, phoneNumber, 'Patient');
-
-  @override
-  Map<String, dynamic> toJson() => {
-        "fullName": fullName,
-        "email": email,
-        "phoneNumber": phoneNumber,
-        "role": role,
-        "age": age,
-        "gender": gender,
-        "healthConditions": healthConditions,
-        "emergencyContact": emergencyContact,
-        "preferredLanguage": preferredLanguage,
-      };
-}
-
-class DoctorDTO extends UserDTO {
-  final String specialization;
-  final int experience;
-  final String affiliation;
-  final String licenseId;
-  final String availableTimings;
-  final double consultationFee;
-
-  DoctorDTO({
-    required String fullName,
-    required String email,
-    required String phoneNumber,
-    required String this.specialization,
-    required this.experience,
-    required this.affiliation,
-    required this.licenseId,
-    required this.availableTimings,
-    required this.consultationFee,
-  }) : super(fullName, email, phoneNumber, 'Doctor');
-
-  @override
-  Map<String, dynamic> toJson() => {
-        "fullName": fullName,
-        "email": email,
-        "phoneNumber": phoneNumber,
-        "role": role,
-        "specialization": specialization,
-        "experience": experience,
-        "affiliation": affiliation,
-        "licenseId": licenseId,
-        "availableTimings": availableTimings,
-        "consultationFee": consultationFee,
-      };
-}
-
-class CaretakerDTO extends UserDTO {
-  final String patientName;
-  final String relationToPatient;
-  final String patientContact;
-  final String accessPermissions;
-
-  CaretakerDTO({
-    required String fullName,
-    required String email,
-    required String phoneNumber,
-    required this.patientName,
-    required this.relationToPatient,
-    required this.patientContact,
-    required this.accessPermissions,
-  }) : super(fullName, email, phoneNumber, 'Caretaker');
-
-  @override
-  Map<String, dynamic> toJson() => {
-        "fullName": fullName,
-        "email": email,
-        "phoneNumber": phoneNumber,
-        "role": role,
-        "patientName": patientName,
-        "relationToPatient": relationToPatient,
-        "patientContact": patientContact,
-        "accessPermissions": accessPermissions,
-      };
+  factory UserDTO.fromJson(Map<String, dynamic> json) {
+    return UserDTO(
+      uid: json['uid'] as String,
+      name: json['fullName'] as String,
+      email: json['email'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      role: json['role'] as String,
+      specialization: json['specialization'] as String?,
+      rating: json['rating'] as double?,
+      caregiverFor: json['caregiverFor'] == null ? null : List<String>.from(json['caregiverFor']),
+      patientId: json['patientId'] as String?,
+      profilePictureUrl: json['profilePictureUrl'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      isBlocked: json['isBlocked'] as bool?,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'uid': uid,
+      'fullName': name,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'role': role,
+      'specialization': specialization,
+      'rating': rating,
+      'caregiverFor': caregiverFor,
+      'patientId': patientId,
+      'profilePictureUrl': profilePictureUrl,
+      'createdAt': createdAt,
+      'isBlocked': isBlocked,
+  };
+  }
 }

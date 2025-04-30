@@ -7,8 +7,7 @@ class MeetingScreen extends StatefulWidget {
   final String roomID;
   final String userName;
 
-  const MeetingScreen({Key? key, required this.roomID, required this.userName})
-      : super(key: key);
+  const MeetingScreen({super.key, required this.roomID, required this.userName});
 
   @override
   State<MeetingScreen> createState() => _MeetingScreenState();
@@ -40,7 +39,7 @@ class _MeetingScreenState extends State<MeetingScreen>
         //auth_token
     return config;
 
-  void _joinRoom() async {
+  void joinRoom() async {
     HMSConfig config = HMSConfig(
         userName: widget.userName,
         authToken:
@@ -104,7 +103,7 @@ class _MeetingScreenState extends State<MeetingScreen>
         title: Text("Meeting Room ${widget.roomID}"),
       ),
       body: Center(
-        child: Container(
+        child: SizedBox(
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
           child: _hmssdk.localPeer != null

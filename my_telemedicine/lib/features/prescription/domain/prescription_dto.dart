@@ -1,46 +1,72 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+class MedicineItem {
+  String name;
+  String dosage;
+  String frequency;
+  String duration; // e.g., 5 days
 
-class PrescriptionDTO {
-  String prescriptionId;
-  String doctorId;
-  String patientId;
-  Timestamp date;
-  List<String> medications;
-  String notes;
-  String pdfUrl;
-  String appointmentId;
-
-  PrescriptionDTO({
-    required this.prescriptionId,
-    required this.doctorId,
-    required this.patientId,
-    required this.date,
-    required this.medications,
-    required this.notes,
-    required this.pdfUrl,
-    required this.appointmentId,
+  MedicineItem({
+    required this.name,
+    required this.dosage,
+    required this.frequency,
+    required this.duration,
   });
 
   Map<String, dynamic> toJson() => {
-        'prescriptionId': prescriptionId,
-        'doctorId': doctorId,
-        'patientId': patientId,
-        'date': date,
-        'medications': medications,
-        'notes': notes,
-        'pdfUrl': pdfUrl,
-        'appointmentId': appointmentId,
+        'name': name,
+        'dosage': dosage,
+        'frequency': frequency,
+        'duration': duration,
       };
 
-  factory PrescriptionDTO.fromJson(Map<String, dynamic> json) =>
-      PrescriptionDTO(
-        prescriptionId: json['prescriptionId'],
-        doctorId: json['doctorId'],
-        patientId: json['patientId'],
-        date: json['date'],
-        medications: List<String>.from(json['medications']),
-        notes: json['notes'],
-        pdfUrl: json['pdfUrl'],
-        appointmentId: json['appointmentId'],
+  factory MedicineItem.fromJson(Map<String, dynamic> json) => MedicineItem(
+        name: json['name'],
+        dosage: json['dosage'],
+        frequency: json['frequency'],
+        duration: json['duration'],
       );
+}
+
+class PrescriptionDTO {
+  String id;
+  String patientId;
+  String doctorId;
+  String appointmentId;
+  List<MedicineItem> medicines;
+  String advice; // Doctor's notes
+  DateTime issuedAt;
+  List<String>? caregiverIds;
+
+  PrescriptionDTO(
+      {required this.id,
+    required this.patientId,
+    required this.doctorId,
+    required this.medicines,
+    required this.advice,
+    required this.issuedAt,
+    required this.appointmentId,
+    this.caregiverIds
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+        'id': id,
+        'patientId': patientId,
+        'doctorId': doctorId,
+        'medicines': medicines.map((item) => item.toJson()).toList(),
+        'advice': advice,
+        'issuedAt': issuedAt.toIso8601String(),
+        'appointmentId': appointmentId,
+        'caregiverIds': caregiverIds,
+    };
+  }
+
+  factory PrescriptionDTO.fromJson(Map<String, dynamic> json) => PrescriptionDTO(
+      id: json['id'],
+      patientId: json['patientId'],
+      doctorId: json['doctorId'],
+      medicines: (json['medicines'] as List).map((item) => MedicineItem.fromJson(item)).toList(),
+      advice: json['advice'],
+      issuedAt: DateTime.parse(json['issuedAt']),
+      appointmentId: json['appointmentId'],
+      caregiverIds: json['caregiverIds'] != null ? List<String>.from(json['caregiverIds']) : null,);
 }

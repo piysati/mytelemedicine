@@ -1,85 +1,59 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:english_words/english_words.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-// Import Firebase Auth
-import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
 import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_firestore_service.dart';
 import 'package:my_telemedicine/features/chat/presentation/pages/chat_page.dart';
-
-
 import 'package:my_telemedicine/features/user_auth/presentation/pages/home_page.dart';
 import 'package:my_telemedicine/features/user_auth/presentation/pages/login_page.dart';
 import 'package:my_telemedicine/features/user_auth/presentation/pages/sign_up_page.dart';
+import 'package:provider/provider.dart';
+import 'package:english_words/english_words.dart';
 
-// const firebaseConfig = {  //my-telemedicine1
-//   apiKey: "AIzaSyA1Bexhf5pOdX5_oo8WrxKpeIE2EuhuGBU",
-//   authDomain: "telemedicine-piy.firebaseapp.com",
-//   projectId: "telemedicine-piy",
-//   storageBucket: "telemedicine-piy.firebasestorage.app",
-//   messagingSenderId: "368133894201",
-//   appId: "1:368133894201:web:a456f75aecdd00158f5de8",
-//   measurementId: "G-97KY3YXFFR"            //"G-DZRD9LZHVB"
-// };
+// Main function to initialize Firebase and run the app
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-Future<void> createAppointment() async{
-  final firestoreService = FirebaseFirestoreService();
-    final appointmentDto = AppointmentDTO(
-      patientId: 'patient123',
-      doctorId: 'doctor123',
-      date: '2024-12-25',
-      time: '10:00-11:00',
-      reason: 'checkup',
-    );
-    await firestoreService.addAppointment(appointmentDto);
-}
-
-Future<void> createDoctor() async {
-  final firestoreService = FirebaseFirestoreService();
-  final doctorData = {
-    'uid': 'doctor123',
-    'fullName': 'Dr. John Doe',
-    'email': 'john.doe@example.com',
-    'role': 'Doctor',
-    'specialization': 'Cardiology',
-  };
-  await firestoreService.addUserToFirestore('doctor123', doctorData);
-}
-void main() async{
-  createAppointment();
-
-  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
-  
-  if(kIsWeb){
+  // Initialize Firebase based on the platform
+  if (kIsWeb) {
     await Firebase.initializeApp(
-      options: FirebaseOptions(
-        apiKey: "AIzaSyA1Bexhf5pOdX5_oo8WrxKpeIE2EuhuGBU",
-        appId: "1:368133894201:web:0e611b1d738ecdfb8f5de8", 
-        messagingSenderId: "368133894201", projectId: "telemedicine-piy")); // Initialize Firebase
-  }else{
+        options: const FirebaseOptions(
+            apiKey: "AIzaSyA1Bexhf5pOdX5_oo8WrxKpeIE2EuhuGBU",
+            appId: "1:368133894201:web:0e611b1d738ecdfb8f5de8",
+            messagingSenderId: "368133894201",
+            projectId: "telemedicine-piy"));
+  } else {
     await Firebase.initializeApp();
   }
-    createDoctor();
-  
-  runApp(MyApp());
+
+  // Add test data.
+  await FirebaseFirestoreService().createTestDoctorAndAppointment();
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
- @override
- Widget build(BuildContext context) => MaterialApp(
-   debugShowCheckedModeBanner: false,
-   title: 'Flutter Firebase',
-   routes: {
-    '/login': (context) => const LoginPage(),
-    '/signup': (context) => const SignUpPage(),
-    '/home': (context) => const HomePage(),
-    '/chat': (context) =>  ChatPage(appointmentId: ModalRoute.of(context)!.settings.arguments as String),
-   },
- );
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Flutter Firebase',
+        // Define the app's routes
+        routes: {
+          '/login': (context) => const LoginPage(),
+          '/signup': (context) => const SignUpPage(),
+          '/home': (context) => const HomePage(),
+          // Route for ChatPage, requiring chatId and userId arguments
+          '/chat': (context) {
+            final arguments = ModalRoute.of(context)!.settings.arguments
+                as Map<String, String>;
+            return ChatPage(
+              chatId: arguments['chatId']!,
+              userId: arguments['userId']!,
+            );
+          },
+        },
+      );
 }
 
 class MyAppState extends ChangeNotifier {
@@ -87,142 +61,22 @@ class MyAppState extends ChangeNotifier {
 }
 
 class MyHomePage extends StatelessWidget {
+  const MyHomePage({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
 
     return Scaffold(
-      body: Column(
-        children: [
-          Text('Welcome to My telemedicine app:'),
-          Text(appState.current.asLowerCase),
-          Text('Firebase is connected!')
-        ],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Welcome to My telemedicine app:'),
+            Text(appState.current.asLowerCase),
+          ],
+        ),
       ),
     );
   }
 }
-
-
-
-
-
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-
-//   // This widget is the root of your application.
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//       title: 'Flutter Demo',
-//       theme: ThemeData(
-//         // This is the theme of your application.
-//         //
-//         // TRY THIS: Try running your application with "flutter run". You'll see
-//         // the application has a purple toolbar. Then, without quitting the app,
-//         // try changing the seedColor in the colorScheme below to Colors.green
-//         // and then invoke "hot reload" (save your changes or press the "hot
-//         // reload" button in a Flutter-supported IDE, or press "r" if you used
-//         // the command line to start the app).
-//         //
-//         // Notice that the counter didn't reset back to zero; the application
-//         // state is not lost during the reload. To reset the state, use hot
-//         // restart instead.
-//         //
-//         // This works for code too, not just values: Most code changes can be
-//         // tested with just a hot reload.
-//         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-//         useMaterial3: true,
-//       ),
-//       home: const MyHomePage(title: 'Flutter Demo Home Page'),
-//     );
-//   }
-// }
-
-// class MyHomePage extends StatefulWidget {
-//   const MyHomePage({super.key, required this.title});
-
-//   // This widget is the home page of your application. It is stateful, meaning
-//   // that it has a State object (defined below) that contains fields that affect
-//   // how it looks.
-
-//   // This class is the configuration for the state. It holds the values (in this
-//   // case the title) provided by the parent (in this case the App widget) and
-//   // used by the build method of the State. Fields in a Widget subclass are
-//   // always marked "final".
-
-//   final String title;
-
-//   @override
-//   State<MyHomePage> createState() => _MyHomePageState();
-// }
-
-// class _MyHomePageState extends State<MyHomePage> {
-//   int _counter = 0;
-
-//   void _incrementCounter() {
-//     setState(() {
-//       // This call to setState tells the Flutter framework that something has
-//       // changed in this State, which causes it to rerun the build method below
-//       // so that the display can reflect the updated values. If we changed
-//       // _counter without calling setState(), then the build method would not be
-//       // called again, and so nothing would appear to happen.
-//       _counter++;
-//     });
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     // This method is rerun every time setState is called, for instance as done
-//     // by the _incrementCounter method above.
-//     //
-//     // The Flutter framework has been optimized to make rerunning build methods
-//     // fast, so that you can just rebuild anything that needs updating rather
-//     // than having to individually change instances of widgets.
-//     return Scaffold(
-//       appBar: AppBar(
-//         // TRY THIS: Try changing the color here to a specific color (to
-//         // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-//         // change color while the other colors stay the same.
-//         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-//         // Here we take the value from the MyHomePage object that was created by
-//         // the App.build method, and use it to set our appbar title.
-//         title: Text(widget.title),
-//       ),
-//       body: Center(
-//         // Center is a layout widget. It takes a single child and positions it
-//         // in the middle of the parent.
-//         child: Column(
-//           // Column is also a layout widget. It takes a list of children and
-//           // arranges them vertically. By default, it sizes itself to fit its
-//           // children horizontally, and tries to be as tall as its parent.
-//           //
-//           // Column has various properties to control how it sizes itself and
-//           // how it positions its children. Here we use mainAxisAlignment to
-//           // center the children vertically; the main axis here is the vertical
-//           // axis because Columns are vertical (the cross axis would be
-//           // horizontal).
-//           //
-//           // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-//           // action in the IDE, or press "p" in the console), to see the
-//           // wireframe for each widget.
-//           mainAxisAlignment: MainAxisAlignment.center,
-//           children: <Widget>[
-//             const Text(
-//               'You have pushed the button this many times:',
-//             ),
-//             Text(
-//               '$_counter',
-//               style: Theme.of(context).textTheme.headlineMedium,
-//             ),
-//           ],
-//         ),
-//       ),
-//       floatingActionButton: FloatingActionButton(
-//         onPressed: _incrementCounter,
-//         tooltip: 'Increment',
-//         child: const Icon(Icons.add),
-//       ), // This trailing comma makes auto-formatting nicer for build methods.
-//     );
-//   }
-// }

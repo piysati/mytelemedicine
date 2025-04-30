@@ -1,13 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/user_auth/presentation/pages/login_page.dart';
-import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
 import 'package:my_telemedicine/global/common/toast.dart';
-
+import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
 import 'package:my_telemedicine/features/user_auth/domain/user_dto.dart';
 import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_auth_service.dart';
 
-class SignUpPage extends StatefulWidget {
+class SignUpPage extends StatefulWidget { 
   const SignUpPage({super.key});
 
 
@@ -25,6 +24,7 @@ class _SignUpPageState extends State<SignUpPage> {
   TextEditingController _passwordController = TextEditingController();
   final _phoneNumberController = TextEditingController();
   String? _selectedRole;
+  String? _specialization;
   bool isObscurePassword = true;
 
   // Patient-Specific Fields
@@ -129,7 +129,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   }).toList(),
                   onChanged: (value) {
                    setState(() {
-                      _selectedRole = value;
+                      _selectedRole = value; 
                     });
                   },
                   validator: (value) =>
@@ -248,11 +248,22 @@ class _SignUpPageState extends State<SignUpPage> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   TextFormField(
-                    controller: _specializationController,
-                    decoration: const InputDecoration(labelText: 'Specialization'),
-                    validator: (value) => value!.isEmpty
-                        ? 'Please enter your specialization'
-                        : null,
+                      controller: _specializationController,
+                      decoration: const InputDecoration(labelText: 'Specialization'),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Please enter your specialization' : null,
+                    ),
+                    DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(labelText: 'Specialization'),
+                        value: _specialization,
+                        items: const ['Cardiology','Pediatrics','Dermatology','Oncology'].map((gender) => DropdownMenuItem(
+                            value: gender, child: Text(gender))).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _specialization = value;
+                          });
+                        },
+                        validator: (value) => value == null ? 'Please select your gender' : null
                   ),
                   TextFormField(
                     controller: _experienceController,
@@ -398,8 +409,8 @@ class _SignUpPageState extends State<SignUpPage> {
       UserDTO userDto;
 
       if (_selectedRole == 'Patient') {
-        userDto = PatientDTO(
-          fullName: _fullNameController.text,
+        userDto = UserDTO(
+          name: _fullNameController.text,
           email: _emailController.text,
           phoneNumber: _phoneNumberController.text,
           age: int.parse(_ageController.text),
@@ -409,12 +420,13 @@ class _SignUpPageState extends State<SignUpPage> {
           preferredLanguage: _preferredLanguage!,
         );
       } else if (_selectedRole == 'Doctor') {
-        userDto = DoctorDTO(
-          fullName: _fullNameController.text,
+        userDto = UserDTO(
+          name: _fullNameController.text,
           email: _emailController.text,
           phoneNumber: _phoneNumberController.text,
-          specialization: _specializationController.text,
-          experience: int.parse(_experienceController.text),
+          role: _selectedRole,
+          specialization: _specialization,
+         experience: int.parse(_experienceController.text),
           affiliation: _hospitalAffiliationController.text,
           licenseId: _licenseIdController.text,
           availableTimings: _availableTimingsController.text,

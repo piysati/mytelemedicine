@@ -3,17 +3,16 @@ import 'dart:collection';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
-import 'package:my_telemedicine/features/chat/presentation/pages/chat_page.dart';
 import 'package:my_telemedicine/features/app/domain/doctor_dto.dart';
-// import 'package:my_telemedicine/features/app/models/appointment_model.dart';
-
-import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
+import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:my_telemedicine/features/app/presentation/pages/doctor_details_page.dart';
 import '../../../user_auth/firebase_auth_impl/firebase_firestore_service.dart';
+import 'package:my_telemedicine/features/user_auth/presentation/widget/form_container_widget.dart';
 
 
 class BookAppointmentPage extends StatefulWidget {
-  const BookAppointmentPage({Key? key}) : super(key: key);
+  const BookAppointmentPage({super.key});
 
   @override
   State<BookAppointmentPage> createState() => _BookAppointmentPageState();
@@ -21,14 +20,16 @@ class BookAppointmentPage extends StatefulWidget {
 
 class _BookAppointmentPageState extends State<BookAppointmentPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _dateController = TextEditingController();
-  final TextEditingController _timeController = TextEditingController();
+
   final TextEditingController _reasonController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
+
   String? _selectedSpecialization;
   List<Map<String, dynamic>> _doctors = []; 
   Map<String, dynamic>? _selectedDoctor;
   Map<String, dynamic>? _selectedSlot;
+
 
 
   // Hardcoded specializations for now
@@ -40,28 +41,28 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   void dispose() {
-    _dateController.dispose();
-    _timeController.dispose();
     _reasonController.dispose();
     super.dispose();
   }
   Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
+    final DateTime? pickedDate = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime.now(), lastDate: DateTime(2101));
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
     }
     _reasonController.dispose();
     super.dispose();
   }
 
+  @override
   Widget build(BuildContext context) {
-    final dateString = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
     return Scaffold(
       appBar: AppBar(
         title: const Text("Book Appointment"),
@@ -73,20 +74,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<String>(
-                value: _selectedSpecialization,
-                items: _specializations.map((String specialization) {
-                  return DropdownMenuItem<String>(
-                    value: specialization,
-                    child: Text(specialization),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedSpecialization = newValue;
-                    _allocateDoctor(_selectedSpecialization);
-                  });
-                },
                 decoration: const InputDecoration(
                   labelText: "Specialization",
                   border: OutlineInputBorder(),
@@ -94,10 +81,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                 validator: (value) =>
                     value == null ? 'Please select a specialization' : null,
               ),
-              const SizedBox(height: 16),
-              FormContainerWidget(
-                controller: _reasonController,
-              ),
+                onChanged: (String? newValue) => setState(() => _selectedSpecialization = newValue),
               const SizedBox(height: 16),
               FormContainerWidget(
                 controller: _reasonController,
@@ -110,13 +94,11 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 32),
-                   ElevatedButton(onPressed:() => _selectDate(context) , child: Text("Select Date :${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}")),
-                       const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _bookAppointment,
-                child: const Text("Book Appointment"),),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed:() => _selectDate(context) , child: Text("Select Date :${_selectedDate.year.toString()}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}")),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _bookAppointment, child: const Text("Book Appointment"),),
+              const SizedBox(height: 16),
               _doctors.isEmpty
                   ?  const Center(child: Text("No doctors found for the selected specialization"),)
                   : Expanded(
@@ -167,10 +149,10 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                   ] else if (_doctors.isNotEmpty)...[
                      const SizedBox(height: 20),]
               ),
+          ],
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -189,11 +171,12 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
           
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Select a doctor first")));
+      return;
     }
      try {
       if (_formKey.currentState!.validate()) {
         final user = FirebaseAuth.instance.currentUser;
-        if (user == null) {
+         if (user == null) {
 
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("User not logged in")),
@@ -201,25 +184,19 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
           return;
         }
         final firestoreService = FirebaseFirestoreService();
+        final dateString = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
         final appointmentDto = AppointmentDTO(
-            patientId: user.uid,
-            doctorId: (_selectedDoctor!["doctor"] as DoctorDTO).uid,
-            date: dateString,
-            time: "${_selectedSlot!['startTime']} - ${_selectedSlot!['endTime']}",
-            reason: _reasonController.text,
+          patientId: user.uid,
+          doctorId: (_selectedDoctor!["doctor"] as DoctorDTO).uid,
+          date: dateString,
+          time: "${_selectedSlot!['startTime']} - ${_selectedSlot!['endTime']}",
+          reason: _reasonController.text,
         );
-
-       await firestoreService.saveDoctorAvailabilitySlot((_selectedDoctor!["doctor"] as DoctorDTO).uid,
-            dateString, _selectedSlot!["startTime"], _selectedSlot!["endTime"], isBooked: true);
+        await firestoreService.updateDoctorAvailabilitySlot((_selectedDoctor!["doctor"] as DoctorDTO).uid,dateString,[_selectedSlot!]);
         await firestoreService.addAppointment(appointmentDto);
-        QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-            .collection('appointments')
-            .where('doctorId', isEqualTo: appointmentDto.doctorId)
-            .where('patientId', isEqualTo: appointmentDto.patientId)
-            .where('date', isEqualTo: appointmentDto.date)
-            .where('time', isEqualTo: appointmentDto.time)
+        QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('appointments').where('doctorId', isEqualTo: appointmentDto.doctorId).where('patientId', isEqualTo: appointmentDto.patientId).where('date', isEqualTo: appointmentDto.date).where('time', isEqualTo: appointmentDto.time)
             .get();
-        final appointmentId = querySnapshot.docs.first.id;
+        final appointmentId = querySnapshot.docs.first.id;        
 
         _showConfirmationDialog(appointmentId);
       }
@@ -227,7 +204,10 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       print("Error booking appointment: $e");
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error booking appointment: $e")),
-      );
+           );
+      } finally{
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -237,26 +217,19 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Appointment Booked'),
-          content: const Text('Your appointment has been booked successfully.'),
+          content: const Text('Your appointment has been booked successfully. A notification has been sent to the doctor and the patient.'),
           actions: [
-            TextButton(
-              child: const Text('Go to Chat'),
-              onPressed: () {
-                Navigator.pushNamed(context, '/chat', arguments: {'appointmentId': appointmentId});
-              },
-            ),
-            TextButton(
+              TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('OK'),
             ),
           ],
         );
-      },
-    );
-  }
+      );
+    }
 
-  Future<void> _allocateDoctor(String? specialization) async {
-     setState(() {
+   Future<void> _allocateDoctor(String? specialization) async {
+       setState(() {
       _doctors = [];
     });
     try {
@@ -274,7 +247,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       final String dateString =
           "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
       List<Map<String, dynamic>> allDoctorsWithAvailability = [];
-      for (var doctor in doctors) {
+       for (var doctor in doctors) {
         final List<Map<String, dynamic>> doctorAvailability =
             await firestoreService.getDoctorAvailabilityByDate(
                 doctor.uid, dateString);
@@ -289,4 +262,3 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       setState(() { });
     }
   }
-}

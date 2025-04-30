@@ -3,14 +3,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_telemedicine/features/chat/domain/message_dto.dart';
+import 'package:my_telemedicine/features/app/domain/appointment_dto.dart';
 import 'package:my_telemedicine/features/user_auth/firebase_auth_impl/firebase_firestore_service.dart';
 import 'package:my_telemedicine/features/call/presentation/pages/meeting_screen.dart';
 import 'package:my_telemedicine/features/prescription/presentation/pages/create_prescription_page.dart';
+import 'package:intl/intl.dart';
 
 class ChatPage extends StatefulWidget {
-  final String appointmentId;
+  final String chatId;
+  final String userId;
 
-  const ChatPage({super.key, required this.appointmentId});
+
+  const ChatPage({super.key, 
+    required this.chatId, 
+    required this.userId});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -20,121 +26,141 @@ class ChatPage extends StatefulWidget {
 class MessageBubble extends StatelessWidget {
   final MessageDTO message;
   final bool isMe;
-
   const MessageBubble({super.key, required this.message, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-      child: Align(
-        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: isMe ? Colors.blue[100] : Colors.grey[300],
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(12),
-                  topRight: const Radius.circular(12),
-                  bottomLeft: isMe
-                      ? const Radius.circular(12)
-                      : const Radius.circular(0),
-                  bottomRight: isMe
-                      ? const Radius.circular(0)
-                      : const Radius.circular(12),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        child: Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Column(
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.blue[100] : Colors.grey[300],
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(12),
+                    topRight: const Radius.circular(12),
+                    bottomLeft: isMe
+                        ? const Radius.circular(12)
+                        : const Radius.circular(0),
+                    bottomRight: isMe
+                        ? const Radius.circular(0)
+                        : const Radius.circular(12),
+                  ),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Text(
+                  message.content,
+                  style: const TextStyle(fontSize: 16),
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text(
-                message.content,
-                style: const TextStyle(fontSize: 16),
+              const SizedBox(height: 4),
+              Text(
+                '${message.timestamp.toDate().hour}:${message.timestamp.toDate().minute.toString().padLeft(2, '0')}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${message.timestamp.toDate().hour}:${message.timestamp.toDate().minute.toString().padLeft(2, '0')}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
+            ],
+          ),
+        ));
   }
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final TextEditingController _messageController = TextEditingController();
-
+  final TextEditingController messageController = TextEditingController();
   String _userName = "";
-  bool _isLoading = true;
-
+  bool isLoading = true;
   String _userRole = "";
   String _doctorId = "";
   String _patientId = "";
+  AppointmentDTO? _appointment;
+
   @override
   void dispose() {
-    _messageController.dispose();
+    messageController.dispose();
     super.dispose();
   }
 
- Stream<List<MessageDTO>> getMessages() {
+  Stream<List<MessageDTO>> getMessages() {
     final firestoreService = FirebaseFirestoreService();
-    return firestoreService.getMessages(widget.appointmentId);
+    return firestoreService.getMessagesForChat(widget.chatId);
   }
 
-
   void _sendMessage() async {
-   
-    if (_messageController.text.isNotEmpty) {
-      final message = MessageDTO(
-        messageId: "", // Will be auto-generated by Firestore
-        senderId: FirebaseFirestoreService().getCurrentUser()!.uid,
-        receiverId: "", // We'll handle this later (doctor/patient)
-        content: _messageController.text,
-        timestamp: Timestamp.now(),
-        appointmentId: widget.appointmentId,
-      );      
-      await FirebaseFirestoreService().addMessage(message);
-      _messageController.clear();
+   if (_isChatActive() && messageController.text.isNotEmpty) {
+        final message = MessageDTO(
+            messageId: "", // Will be auto-generated by Firestore
+            senderId: widget.userId,
+            content: messageController.text,
+            timestamp: Timestamp.now(),
+            chatId: widget.chatId);
+        await FirebaseFirestoreService().sendMessage(message);
+        messageController.clear();
+      }
+  }
+
+  bool _isChatActive() {
+    if (_appointment == null) {
+      return false; // No appointment data, consider chat inactive
+    }
+    final now = DateTime.now();
+    return _appointment!.date.toDate().isAfter(now);
+  }
+
+  Future<AppointmentDTO?> _getAppointmentForChat(String chatId) async {
+    try {
+      final service = FirebaseFirestoreService();
+      return await service.getAppointmentForChat(chatId);
+    } catch (e) {
+      // Handle error appropriately
+      return null;
+    }
+      messageController.clear();
     }
   }
   @override
   void initState() {
     super.initState();
-    _fetchUserData();
-  }
-
-  Future<void> _fetchUserData() async {
-    final user = await FirebaseFirestoreService().getCurrentUser();
-    final doc = await FirebaseFirestoreService().getUserById(user!.uid);
-    
+    fetchUserData();
+      _loadAppointment();
+    }
+  Future<void> _loadAppointment() async {
+    final appointment = await _getAppointmentForChat(widget.chatId);
     setState(() {
-      _userName = doc.fullName;
-      _isLoading = false;
-      _userRole = doc.role;
-      if (_userRole == "Patient") _doctorId = doc.doctorId;
-      if(_userRole == "Doctor") _patientId = doc.patientId;
+      _appointment = appointment;
     });
   }
-    void _goToMeetingScreen() {
+    Future<void> fetchUserData() async {
+      final user = await FirebaseFirestoreService().getCurrentUser();
+      final doc = await FirebaseFirestoreService().getUserById(user!.uid);
+        setState(() {
+        _userName = doc.fullName;
+        isLoading = false;
+        _userRole = doc.role;
+        if (_userRole == "Patient") _doctorId = doc.doctorId;
+        if (_userRole == "Doctor") _patientId = doc.patientId;
+    });
+  }
+  void goToMeetingScreen() {
     Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (context) => MeetingScreen(
-                roomID: widget.appointmentId, userName: _userName)));
+            builder: (context) => MeetingScreen( 
+                roomID: _appointment!.appointmentId, userName: _userName)));
+      }
+  void startMeeting() async {
+    goToMeetingScreen();
   }
-  void _startMeeting() async {
-    _goToMeetingScreen();
-  }
-  void _joinMeeting() async {
+  void joinMeeting() async {
     final service = FirebaseFirestoreService();
     bool isDoctorInRoom = await service.isDoctorInMeeting(_doctorId, widget.appointmentId);
     if(isDoctorInRoom){
-        _goToMeetingScreen();
+        goToMeetingScreen();
     }else{
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -145,88 +171,86 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context){
     return  Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: IconButton(icon: const Icon(Icons.arrow_back),onPressed:() => Navigator.of(context).pop(),),
         title: const Text("Chat"),
       ),
       body: Column(
-        children: [
+        children: <Widget>[
           StreamBuilder<List<MessageDTO>>(
             stream: getMessages(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text("Error loading messages"));
               }
-              
+
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
               final messages = snapshot.data!;
               return Expanded(
                 child: ListView.builder(
-                    reverse: true,
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {}
-                )
-              ),
+                  reverse: true,
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    return MessageBubble(
+                        message: message,
+                        isMe: message.senderId == widget.userId);
+                  }),
+              );
             },
           ),
           Padding(
-
              padding: const EdgeInsets.all(8.0),
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    return MessageBubble(message: message, isMe: message.senderId == FirebaseAuth.instance.currentUser?.uid);
-                ),
-              },
-            ),
-          ),
-           if (_userRole == "Doctor")
-          Padding(
-            padding: const EdgeInsets.all(8.0),
             child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: "Enter message",
+           children: [
+            Expanded(
+              child: TextField(
+                controller: messageController,
+                enabled: _isChatActive(),
+                decoration: InputDecoration(
+                  hintText: "Enter message",
+                  hintStyle: TextStyle(
+                    color: _isChatActive() ? Colors.grey : Colors.grey[400], // Adjust hint color
+                    ),
                     ),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            
-                
+                  onPressed: _isChatActive() ? _sendMessage : null,
+                  color: _isChatActive() ? Colors.blue : Colors.grey[400], // Adjust icon color
                   ),
-                ),
-              ),
+                ],
             ),
-              ElevatedButton(
-                onPressed: _userRole == "Doctor" && !_isLoading
-                    ? () {
-                       Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => CreatePrescriptionPage(patientId: _patientId, appointmentId: widget.appointmentId)));
-                    }
-                    : null,
-                child: const Text("Create Prescription"),
-              ),
-            ),
-               ElevatedButton(
-              onPressed: _isLoading
+          ),
+          ElevatedButton(
+            onPressed: _userRole == "Doctor" && !isLoading
+                ? () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => CreatePrescriptionPage(
+                                patientId: _patientId, 
+                                appointmentId: widget.appointmentId)));
+                  }
+                : null,
+            child: const Text("Create Prescription"),
+          ),
+          ElevatedButton(
+              onPressed: isLoading
                   ? null
                   : () {
-                      _userRole == "Doctor" ? _startMeeting() : _joinMeeting();
+                      userRole == "Doctor" ? startMeeting() : joinMeeting();
                     },
-              child: Text(_userRole == "Doctor" ? "Start Meeting" : "Go to Meeting"),
-              ),
+              child: Text(userRole == "Doctor" ? "Start Meeting" : "Go to Meeting"),
             ),
+        
         ],
-      ),
-    );
+      ),);
   }
+}

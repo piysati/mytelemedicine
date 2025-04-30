@@ -13,8 +13,7 @@ import 'package:path/path.dart' as path;
 class PrescriptionListPage extends StatefulWidget {
   final String patientId;
 
-  const PrescriptionListPage({Key? key, required this.patientId})
-      : super(key: key);
+  const PrescriptionListPage({super.key, required this.patientId});
 
   @override
   _PrescriptionListPageState createState() => _PrescriptionListPageState();

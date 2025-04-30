@@ -13,7 +13,7 @@ class CreatePrescriptionPage extends StatefulWidget {
   final String patientId;
   final String appointmentId;
 
-  const CreatePrescriptionPage({Key? key, required this.patientId, required this.appointmentId}) : super(key: key);
+  const CreatePrescriptionPage({super.key, required this.patientId, required this.appointmentId});
 
   @override
   _CreatePrescriptionPageState createState() => _CreatePrescriptionPageState();
